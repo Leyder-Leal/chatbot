@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Chatbot</title>
+</head>
+<body>
+    <h1>Platos</h1>
+    <ul id="dishes">
+        {% for dish in dishes %}
+            <li>
+                {{ dish.name }}
+                <button onclick="deleteDish({{ dish.id }})">Eliminar</button>
+            </li>
+        {% endfor %}
+    </ul>
+    <form id="add-dish">
+        <input type="text" id="dish" name="text" placeholder="Nueva opción">
+        <button type="submit">Agregar</button>
+    </form>
+    <script src="static/dish.js"></script>
+    <script>
+        // Esta función elimina una adición
+        async function deleteDish(dishId) {
+            try {
+                const response = await fetch(`/dishes/${dishId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al eliminar la adición');
+                }
+
+                // Recarga la página después de eliminar la adición
+                window.location.reload();
+            } catch (error) {
+                console.error('Error al eliminar la adición:', error);
+                // Maneja el error apropiadamente
+            }
+        }
+    </script>
+</body>
+</html>

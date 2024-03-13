@@ -55,14 +55,14 @@ def text_Message(number,text):
     )
     return data
 
-def buttonReply_Message(number, options, body, footer, sedd,messageId):
+def buttonReply_Message(number, options, body, footer, sedd, messageId):
     buttons = []
     for i, option in enumerate(options):
         buttons.append(
             {
                 "type": "reply",
                 "reply": {
-                    "id": sedd + "_btn_" + str(i+1),
+                    "id": sedd + "btn" + str(i+1),
                     "title": option
                 }
             }
@@ -90,12 +90,13 @@ def buttonReply_Message(number, options, body, footer, sedd,messageId):
     )
     return data
 
-def listReply_Message(number, options, body, footer, sedd,messageId):
+def listReply_Message(number, user_options, body, footer, sedd, messageId):
     rows = []
-    for i, option in enumerate(options):
+    for i, option in enumerate(user_options):
+        print(f"opciones: {option}")
         rows.append(
             {
-                "id": sedd + "_row_" + str(i+1),
+                "id": sedd + "row" + str(i+1),
                 "title": option,
                 "description": ""
             }
@@ -215,89 +216,135 @@ def administrar_chatbot(text,number, messageId, name):
     text = text.lower() #mensaje que envio el usuario
     list = []
     print("mensaje del usuario: ",text)
-
     markRead = markRead_Message(messageId)
     list.append(markRead)
+    global estado 
+    global direccion
     time.sleep(2)
 
-    if "hola" in text:
-        body = "¡Hola! 👋 Bienvenido a Bigdateros. ¿Cómo podemos ayudarte hoy?"
-        footer = "Equipo Bigdateros"
-        options = ["✅ servicios", "📅 agendar cita"]
-
+    if "hola" in text or "sí, por favor." in text:
+        body = "¡Hola! 👋 Bienvenido al Restaurante Prueba. ¿Cómo puedo ayudarte hoy?"
+        footer = "Restaurante Prueba"
+        options = ["📋 Menú", "📅 Reservacion", "⏱️ Estado mi Pedido"]
         replyButtonData = buttonReply_Message(number, options, body, footer, "sed1",messageId)
         replyReaction = replyReaction_Message(number, messageId, "🫡")
         list.append(replyReaction)
         list.append(replyButtonData)
-    elif "servicios" in text:
-        body = "Tenemos varias áreas de consulta para elegir. ¿Cuál de estos servicios te gustaría explorar?"
-        footer = "Equipo Bigdateros"
-        options = ["Analítica Avanzada", "Migración Cloud", "Inteligencia de Negocio"]
-
-        listReplyData = listReply_Message(number, options, body, footer, "sed2",messageId)
-        sticker = sticker_Message(number, get_media_id("perro_traje", "sticker"))
-
-        list.append(listReplyData)
-        list.append(sticker)
-    elif "inteligencia de negocio" in text:
-        body = "Buenísima elección. ¿Te gustaría que te enviara un documento PDF con una introducción a nuestros métodos de Inteligencia de Negocio?"
-        footer = "Equipo Bigdateros"
-        options = ["✅ Sí, envía el PDF.", "⛔ No, gracias"]
-
-        replyButtonData = buttonReply_Message(number, options, body, footer, "sed3",messageId)
-        list.append(replyButtonData)
-    elif "sí, envía el pdf" in text:
-        sticker = sticker_Message(number, get_media_id("pelfet", "sticker"))
-        textMessage = text_Message(number,"Genial, por favor espera un momento.")
-
-        enviar_Mensaje_whatsapp(sticker)
-        enviar_Mensaje_whatsapp(textMessage)
-        time.sleep(3)
-
-        document = document_Message(number, sett.document_url, "Listo 👍🏻", "Inteligencia de Negocio.pdf")
-        enviar_Mensaje_whatsapp(document)
-        time.sleep(3)
-
-        body = "¿Te gustaría programar una reunión con uno de nuestros especialistas para discutir estos servicios más a fondo?"
-        footer = "Equipo Bigdateros"
-        options = ["✅ Sí, agenda reunión", "No, gracias." ]
-
-        replyButtonData = buttonReply_Message(number, options, body, footer, "sed4",messageId)
-        list.append(replyButtonData)
-    elif "sí, agenda reunión" in text :
-        body = "Estupendo. Por favor, selecciona una fecha y hora para la reunión:"
-        footer = "Equipo Bigdateros"
-        options = ["📅 10: mañana 10:00 AM", "📅 7 de junio, 2:00 PM", "📅 8 de junio, 4:00 PM"]
-
-        listReply = listReply_Message(number, options, body, footer, "sed5",messageId)
+        
+    elif "menú" in text:
+        body = "Estos son los platos del dia de hoy🍲, presiona en ver opciones: "
+        footer = "Restaurante prueba"
+        user_options = get_dishes()
+        listReply = listReply_Message(number, user_options, body, footer, "sed2",messageId)
         list.append(listReply)
+
+    elif any(dish in text for dish in get_dishes()): 
+        dish = text  
+        body = f"Pediste {dish}😋, ¿estás segur@ que quieres realizar este pedido?"
+        footer = "Restaurante prueba"
+        options = ["✅ Si.", "❌ No, gracias."]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed3", messageId)
+        list.append(replyButtonData)
+    
+    elif "si." in text:
+        body = "¿Deseas añadir algun ingrediente adicional😄?, presiona en ver opciones:"
+        footer = "Restaurante prueba"
+        user_options = get_addition()
+        listReply = listReply_Message(number, user_options, body, footer, "sed4",messageId)
+        list.append(listReply)
+    
+    elif any(extra in text for extra in get_addition()) or "no." in text:
+        body = f"¿Como deseas recibir tu pedido📋?"
+        footer = "Restaurante prueba"
+        options = ["Recoger en Sitio 🏬", "Domicilio 🏡"]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed5", messageId)
+        list.append(replyButtonData)
+    
+    elif "recoger en sitio" in text:
+        body = "Ok, lo esperamos en 10 minutos⏱, ¿Necesitas ayuda con algo más hoy?"
+        footer = "Restaurante prueba"
+        options = ["✅ Sí, por favor.", "❌ No, gracias."]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed6", messageId)
+        list.append(replyButtonData)
+        
+    elif "domicilio" in text or "no, corregir." in text:
+        textMessage = text_Message(number,"Ok😊, Ingresa la dirección de entrega: ")
+        enviar_Mensaje_whatsapp(textMessage)
+        estado = "esperando_direccion"
+
+    elif estado == "esperando_direccion":
+        direccion = text
+        textMessage = text_Message(number, "Ingresa tu nombre😄: ")
+        enviar_Mensaje_whatsapp(textMessage)
+        estado = "esperando_nombre"
+
+    elif estado == "esperando_nombre":
+        nombre = text
+        body = f"Confirmas que tu dirección de entrega es {direccion} y tu nombre es {nombre}"
+        footer = "Restaurante prueba"
+        options = ["✅ Confirmar", "❌ No, corregir."]
+        estado = ""
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed7", messageId)
+        list.append(replyButtonData)
+        
+    elif "confirmar" in text:
+        textMessage = text_Message(number, "Espera un momento el numero del ticket..")
+        enviar_Mensaje_whatsapp(textMessage)
+        time.sleep(2)
+        ticket =+ 1
+        body = f"Tu pedido se ha realizado con exito✅. El numero de ticket de tu pedido es: '{ticket}'. ¿Necesitas ayuda con algo más hoy?"
+        footer = "Restaurante prueba"
+        options = ["✅ Sí, por favor.", "❌ No, gracias."]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed8", messageId)
+        list.append(replyButtonData)
+
+    elif "estado mi pedido" in text:
+        textMessage = text_Message(number,"Ingresa el numero de tu ticket:")
+        enviar_Mensaje_whatsapp(textMessage)
+    
+    elif "reservacion" in text:
+        body = "Por favor, selecciona una fecha y hora disponible:"
+        footer = "Restaurante prueba"
+        user_options = ["📆 7 de junio, 2:00 PM"]
+        listReply = listReply_Message(number, user_options, body, footer, "sed9",messageId)
+        list.append(listReply)
+        
     elif "7 de junio, 2:00 pm" in text:
-        body = "Excelente, has seleccionado la reunión para el 7 de junio a las 2:00 PM. Te enviaré un recordatorio un día antes. ¿Necesitas ayuda con algo más hoy?"
-        footer = "Equipo Bigdateros"
-        options = ["✅ Sí, por favor", "❌ No, gracias."]
-
-
-        buttonReply = buttonReply_Message(number, options, body, footer, "sed6",messageId)
+        body = "Excelente, has reservado para el 7 de junio a las 2:00 PM. Te enviaré un recordatorio un día antes. ¿Necesitas ayuda con algo más hoy?"
+        footer = "Restaurante prueba"
+        options = ["✅ Sí, por favor.", "❌ No, gracias."]
+        buttonReply = buttonReply_Message(number, options, body, footer, "sed10",messageId)
         list.append(buttonReply)
+        
     elif "no, gracias." in text:
-        textMessage = text_Message(number,"Perfecto! No dudes en contactarnos si tienes más preguntas. Recuerda que también ofrecemos material gratuito para la comunidad. ¡Hasta luego! 😊")
+        textMessage = text_Message(number,"Hasta pronto!😊. Escribe 'hola' si necesitas ayuda")
         list.append(textMessage)
-    else :
-        data = text_Message(number,"Lo siento, no entendí lo que dijiste. ¿Quieres que te ayude con alguna de estas opciones?")
+        
+    else:
+        data = text_Message(number,"Lo siento, no entendí lo que dijiste😔. Si necesitas algo, escribe 'hola' o elige una de las opciones ofrecidas.")
         list.append(data)
 
     for item in list:
-        enviar_Mensaje_whatsapp(item)
+        enviar_Mensaje_whatsapp(item)        
 
-#al parecer para mexico, whatsapp agrega 521 como prefijo en lugar de 52,
-# este codigo soluciona ese inconveniente.
-def replace_start(s):
-    number = s[3:]
-    if s.startswith("521"):
-        return "52" + number
-    elif s.startswith("549"):
-        return "54" + number
+def get_dishes():
+    url = 'http://localhost:5000/dishes'  
+    response = requests.get(url)
+    if response.status_code == 200:
+        dishes = response.json()
+        print(f"Opciones recuperadas: {dishes}")
+        return [{'id': i + 1, 'name': dish} for i, dish in enumerate(dishes)]
     else:
-        return s
-        
-
+        print(f"Error al obtener opciones: {response.status_code}")
+        return []  # Lista vacía en caso de error
+    
+def get_addition():
+    url = 'http://localhost:5000/additions'
+    response = requests.get(url)
+    if response.status_code == 200:
+        additions = response.json()
+        print(f"Opciones recuperadas: {additions}")
+        return [{'id': i + 1, 'name': addition} for i, addition in enumerate(additions)]
+    else:
+        print(f"Error al obtener opciones: {response.status_code}")
+        return []
