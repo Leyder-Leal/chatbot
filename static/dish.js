@@ -1,44 +1,35 @@
-const dishesList = document.getElementById('dishes');
+const optionsList = document.getElementById('options');
+const addOptionForm = document.getElementById('add-option');
 
-function attachSubmitListener() {
-  const addDishesForm = document.getElementById('add-dish');
-  if (addDishesForm) {
-    addDishesForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const dishText = document.getElementById('dish').value;
-
-      try {
-        const response = await fetch('/dishes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ text: dishText }),
+// Obtiene la lista de opciones al cargar la página
+fetch('/options')
+    .then(response => response.json())
+    .then(data => {
+        data.forEach(option => {
+            const optionElement = document.createElement('li');
+            optionElement.textContent = option.text;
+            optionsList.appendChild(optionElement);
         });
-
-        if (!response.ok) {
-          throw new Error('Error al agregar el plato');
-        }
-
-        const data = await response.json();
-
-        if (data.error) {
-          console.error('Error:', data.error);
-          return;
-        }
-
-        const dishElement = document.createElement('li');
-        dishElement.textContent = dishText;
-        dishesList.appendChild(dishElement);
-
-        addDishesForm.reset();
-
-      } catch (error) {
-        console.error('Error al agregar el plato:', error);
-      }
     });
-  }
-}
 
-document.addEventListener('DOMContentLoaded', attachSubmitListener);
+// Agrega una nueva opción
+addOptionForm.addEventListener('submit', event => {
+    event.preventDefault();
+
+    const formData = new FormData(event.target);
+    const optionText = formData.get('option');
+
+    fetch('/options', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: optionText }),
+    })
+        .then(response => response.json())
+        .then(data => {
+            const optionElement = document.createElement('li');
+            optionElement.textContent = data.text;
+            optionsList.appendChild(optionElement);
+        });
+});

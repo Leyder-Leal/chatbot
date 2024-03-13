@@ -1,44 +1,39 @@
-const additionsList = document.getElementById('additions');
+const extrasList = document.getElementById('extras');
 
 function attachSubmitListener() {
-  const addAdditionForm = document.getElementById('add-addition');
-  if (addAdditionForm) {
-    addAdditionForm.addEventListener('submit', async (e) => {
+  const addExtraForm = document.getElementById('add-extra');
+  if (addExtraForm) {
+    addExtraForm.addEventListener('submit', e => {
       e.preventDefault();
 
-      const additionText = document.getElementById('addition').value;
+      const formData = new FormData(e.target);
+      const extraText = formData.get('extra');
 
-      try {
-        const response = await fetch('/additions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ text: additionText }),
+      fetch('/extras', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: extraText }),
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('La respuesta de la red no fue correcta');
+          }
+          return response.json();
+        })
+        .then(data => {
+          const extraElement = document.createElement('li');
+          extraElement.textContent = data.text;
+          extrasList.appendChild(extraElement);
+        })
+        .catch(error => {
+          console.error('Error al agregar extra:', error);
+          // Manejar los errores de forma adecuada (p. ej., mostrar un mensaje al usuario)
         });
-
-        if (!response.ok) {
-          throw new Error('Error al agregar adición');
-        }
-
-        const data = await response.json();
-
-        if (data.error) {
-          console.error('Error:', data.error);
-          return;
-        }
-
-        const additionElement = document.createElement('li');
-        additionElement.textContent = additionText;
-        additionsList.appendChild(additionElement);
-
-        addAdditionForm.reset();
-
-      } catch (error) {
-        console.error('Error al agregar adición:', error);
-      }
     });
   }
 }
 
+// Llamar a la función después de DOMContentLoaded
 document.addEventListener('DOMContentLoaded', attachSubmitListener);

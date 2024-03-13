@@ -1,135 +1,350 @@
-from flask import Flask, jsonify, request, render_template
-import sett 
-import services
-from database import session
-from models import *
+import requests
+import sett
+import json
+import time
 
-app = Flask(__name__)
+def obtener_Mensaje_whatsapp(message):
+    if 'type' not in message :
+        text = 'mensaje no reconocido'
+        return text
 
-@app.route('/webhook', methods=['GET'])
-def verificar_token():
+    typeMessage = message['type']
+    if typeMessage == 'text':
+        text = message['text']['body']
+    elif typeMessage == 'button':
+        text = message['button']['text']
+    elif typeMessage == 'interactive' and message['interactive']['type'] == 'list_reply':
+        text = message['interactive']['list_reply']['title']
+    elif typeMessage == 'interactive' and message['interactive']['type'] == 'button_reply':
+        text = message['interactive']['button_reply']['title']
+    else:
+        text = 'mensaje no procesado'
+    
+    
+    return text
+
+def enviar_Mensaje_whatsapp(data):
     try:
-        token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
-
-        if token == sett.token and challenge != None:
-            return challenge
+        whatsapp_token = sett.whatsapp_token
+        whatsapp_url = sett.whatsapp_url
+        headers = {'Content-Type': 'application/json',
+                   'Authorization': 'Bearer ' + whatsapp_token}
+        print("se envia ", data)
+        response = requests.post(whatsapp_url, 
+                                 headers=headers, 
+                                 data=data)
+        
+        if response.status_code == 200:
+            return 'mensaje enviado', 200
         else:
-            return 'token incorrecto', 403
+            return 'error al enviar mensaje', response.status_code
     except Exception as e:
         return e,403
     
-@app.route('/webhook', methods=['POST'])
-def recibir_mensajes():
-    try:
-        body = request.get_json()
-        entry = body['entry'][0]
-        changes = entry['changes'][0]
-        value = changes['value']
-        message = value['messages'][0]
-        number = message['from']
-        messageId = message['id']
-        contacts = value['contacts'][0]
-        name = contacts['profile']['name']
-        text = services.obtener_Mensaje_whatsapp(message)
+def text_Message(number,text):
+    data = json.dumps(
+            {
+                "messaging_product": "whatsapp",    
+                "recipient_type": "individual",
+                "to": number,
+                "type": "text",
+                "text": {
+                    "body": text
+                }
+            }
+    )
+    return data
 
-        services.administrar_chatbot(text, number, messageId, name)
-        return 'enviado'
+def buttonReply_Message(number, options, body, footer, sedd, messageId):
+    buttons = []
+    for i, option in enumerate(options):
+        buttons.append(
+            {
+                "type": "reply",
+                "reply": {
+                    "id": sedd + "btn" + str(i+1),
+                    "title": option
+                }
+            }
+        )
 
-    except Exception as e:
-        return 'no enviado ' + str(e)
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {
+                    "text": body
+                },
+                "footer": {
+                    "text": footer
+                },
+                "action": {
+                    "buttons": buttons
+                }
+            }
+        }
+    )
+    return data
 
+def listReply_Message(number, user_options, body, footer, sedd, messageId):
+    rows = []
+    for i, option in enumerate(user_options):
+        print(f"opciones: {option}")
+        rows.append(
+            {
+                "id": sedd + "row" + str(i+1),
+                "title": option,
+                "description": ""
+            }
+        )
 
-@app.route('/dishes', methods=['GET'])
-def get_dishes():
-    dishes = session.query(Dish).all()
-    return jsonify([dish.name for dish in dishes])
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "body": {
+                    "text": body
+                },
+                "footer": {
+                    "text": footer
+                },
+                "action": {
+                    "button": "Ver Opciones",
+                    "sections": [
+                        {
+                            "title": "Secciones",
+                            "rows": rows
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    return data
 
-@app.route('/dishes', methods=['POST'])
-def add_dish():
-    data = request.get_json()
-    dish = data['text']
-    new_dish = Dish(name=dish)
-    session.add(new_dish)
-    session.commit()
-    return jsonify({'success': True})
+def document_Message(number, url, caption, filename):
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "type": "document",
+            "document": {
+                "link": url,
+                "caption": caption,
+                "filename": filename
+            }
+        }
+    )
+    return data
 
-@app.route('/dishes/<int:dish_id>', methods=['DELETE'])
-def delete_dish(dish_id):
-    dish = session.query(Dish).filter_by(id=dish_id).first()
-    if dish:
-        session.delete(dish)
-        session.commit()
-        return jsonify({'success': True})
+def sticker_Message(number, sticker_id):
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "type": "sticker",
+            "sticker": {
+                "id": sticker_id
+            }
+        }
+    )
+    return data
+
+def get_media_id(media_name , media_type):
+    media_id = ""
+    if media_type == "sticker":
+        media_id = sett.stickers.get(media_name, None)
+    #elif media_type == "image":
+    #    media_id = sett.images.get(media_name, None)
+    #elif media_type == "video":
+    #    media_id = sett.videos.get(media_name, None)
+    #elif media_type == "audio":
+    #    media_id = sett.audio.get(media_name, None)
+    return media_id
+
+def replyReaction_Message(number, messageId, emoji):
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "type": "reaction",
+            "reaction": {
+                "message_id": messageId,
+                "emoji": emoji
+            }
+        }
+    )
+    return data
+
+def replyText_Message(number, messageId, text):
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "context": { "message_id": messageId },
+            "type": "text",
+            "text": {
+                "body": text
+            }
+        }
+    )
+    return data
+
+def markRead_Message(messageId):
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id":  messageId
+        }
+    )
+    return data
+
+def administrar_chatbot(text,number, messageId, name):
+    text = text.lower() #mensaje que envio el usuario
+    list = []
+    print("mensaje del usuario: ",text)
+    markRead = markRead_Message(messageId)
+    list.append(markRead)
+    global estado 
+    global direccion
+    time.sleep(2)
+
+    if "hola" in text or "sí, por favor." in text:
+        body = "¡Hola! 👋 Bienvenido al Restaurante Prueba. ¿Cómo puedo ayudarte hoy?"
+        footer = "Restaurante Prueba"
+        options = ["📋 Menú", "📅 Reservacion", "⏱️ Estado mi Pedido"]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed1",messageId)
+        replyReaction = replyReaction_Message(number, messageId, "🫡")
+        list.append(replyReaction)
+        list.append(replyButtonData)
+        
+    elif "menú" in text:
+        body = "Estos son los platos del dia de hoy🍲, presiona en ver opciones: "
+        footer = "Restaurante prueba"
+        user_options = get_user_options()
+        listReply = listReply_Message(number, user_options, body, footer, "sed2",messageId)
+        list.append(listReply)
+
+    elif any(option in text for option in get_user_options()): 
+        dish = text  
+        body = f"Pediste {dish}😋, ¿estás segur@ que quieres realizar este pedido?"
+        footer = "Restaurante prueba"
+        options = ["✅ Si.", "❌ No, gracias."]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed3", messageId)
+        list.append(replyButtonData)
+    
+    elif "si." in text:
+        body = "¿Deseas añadir algun ingrediente adicional😄?, presiona en ver opciones:"
+        footer = "Restaurante prueba"
+        user_options = get_user_extras()
+        listReply = listReply_Message(number, user_options, body, footer, "sed4",messageId)
+        list.append(listReply)
+    
+    elif any(extra in text for extra in get_user_extras()) or "no." in text:
+        body = f"¿Como deseas recibir tu pedido📋?"
+        footer = "Restaurante prueba"
+        options = ["Recoger en Sitio 🏬", "Domicilio 🏡"]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed5", messageId)
+        list.append(replyButtonData)
+    
+    elif "recoger en sitio" in text:
+        body = "Ok, lo esperamos en 10 minutos⏱, ¿Necesitas ayuda con algo más hoy?"
+        footer = "Restaurante prueba"
+        options = ["✅ Sí, por favor.", "❌ No, gracias."]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed6", messageId)
+        list.append(replyButtonData)
+        
+    elif "domicilio" in text or "no, corregir." in text:
+        textMessage = text_Message(number,"Ok😊, Ingresa la dirección de entrega: ")
+        enviar_Mensaje_whatsapp(textMessage)
+        estado = "esperando_direccion"
+
+    elif estado == "esperando_direccion":
+        direccion = text
+        textMessage = text_Message(number, "Ingresa tu nombre😄: ")
+        enviar_Mensaje_whatsapp(textMessage)
+        estado = "esperando_nombre"
+
+    elif estado == "esperando_nombre":
+        nombre = text
+        body = f"Confirmas que tu dirección de entrega es {direccion} y tu nombre es {nombre}"
+        footer = "Restaurante prueba"
+        options = ["✅ Confirmar", "❌ No, corregir."]
+        estado = ""
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed7", messageId)
+        list.append(replyButtonData)
+        
+    elif "confirmar" in text:
+        textMessage = text_Message(number, "Espera un momento el numero del ticket..")
+        enviar_Mensaje_whatsapp(textMessage)
+        time.sleep(2)
+        ticket =+ 1
+        body = f"Tu pedido se ha realizado con exito✅. El numero de ticket de tu pedido es: '{ticket}'. ¿Necesitas ayuda con algo más hoy?"
+        footer = "Restaurante prueba"
+        options = ["✅ Sí, por favor.", "❌ No, gracias."]
+        replyButtonData = buttonReply_Message(number, options, body, footer, "sed8", messageId)
+        list.append(replyButtonData)
+
+    elif "estado mi pedido" in text:
+        textMessage = text_Message(number,"Ingresa el numero de tu ticket:")
+        enviar_Mensaje_whatsapp(textMessage)
+    
+    elif "reservacion" in text:
+        body = "Por favor, selecciona una fecha y hora disponible:"
+        footer = "Restaurante prueba"
+        user_options = ["📆 7 de junio, 2:00 PM"]
+        listReply = listReply_Message(number, user_options, body, footer, "sed9",messageId)
+        list.append(listReply)
+        
+    elif "7 de junio, 2:00 pm" in text:
+        body = "Excelente, has reservado para el 7 de junio a las 2:00 PM. Te enviaré un recordatorio un día antes. ¿Necesitas ayuda con algo más hoy?"
+        footer = "Restaurante prueba"
+        options = ["✅ Sí, por favor.", "❌ No, gracias."]
+        buttonReply = buttonReply_Message(number, options, body, footer, "sed10",messageId)
+        list.append(buttonReply)
+        
+    elif "no, gracias." in text:
+        textMessage = text_Message(number,"Hasta pronto!😊. Escribe 'hola' si necesitas ayuda")
+        list.append(textMessage)
+        
     else:
-        return jsonify({'success': False, 'error': 'La adición no existe'}), 404
+        data = text_Message(number,"Lo siento, no entendí lo que dijiste😔. Si necesitas algo, escribe 'hola' o elige una de las opciones ofrecidas.")
+        list.append(data)
 
-@app.route('/dish')
-def show_dishes():
-    dishes = session.query(Dish).all()
-    return render_template('dish.html', dishes=dishes)
+    for item in list:
+        enviar_Mensaje_whatsapp(item)        
 
-
-
-@app.route('/additions', methods=['GET'])
-def get_additions():
-    additions = session.query(Addition).all()
-    return jsonify([addition.name for addition in additions])
-
-@app.route('/additions', methods=['POST'])
-def add_addition():
-    data = request.get_json()
-    addition = data['text']
-    new_addition = Addition(name=addition)
-    session.add(new_addition)
-    session.commit()
-    return jsonify({'success': True})
-
-@app.route('/additions/<int:addition_id>', methods=['DELETE'])
-def delete_addition(addition_id):
-    addition = session.query(Addition).filter_by(id=addition_id).first()
-    if addition:
-        session.delete(addition)
-        session.commit()
-        return jsonify({'success': True})
+def get_user_options():
+    url = 'http://localhost:5000/options'  
+    response = requests.get(url)
+    if response.status_code == 200:
+        options = response.json()
+        print(f"Opciones recuperadas: {options}")
+        return [option for option in options]  # Filtrar por "carta"
     else:
-        return jsonify({'success': False, 'error': 'La adición no existe'}), 404
-
-@app.route('/addition')
-def show_additions():
-    additions = session.query(Addition).all()
-    return render_template('addition.html', additions=additions)
-
-
-# @app.route('/orders', methods=['GET'])
-# def get_orders():
-#     orders = session.query(Order).all()
-#     return jsonify([order.ticket for order in orders])
-
-# @app.route('/orders', methods=['POST'])
-# def add_order():
-#     data = request.get_json()
-#     order = data['text']
-#     new_order = Order(name=order)
-#     session.add(new_order)
-#     session.commit()
-#     return jsonify({'success': True})
-
-# @app.route('/orders/<int:order_id>', methods=['DELETE'])
-# def delete_order(order_id):
-#     order = session.query(Order).filter_by(id=order_id).first()
-#     if order:
-#         session.delete(order)
-#         session.commit()
-#         return jsonify({'success': True})
-#     else:
-#         return jsonify({'success': False, 'error': 'La adición no existe'}), 404
-
-# @app.route('/order')
-# def show_orders():
-#     orders = session.query(Order).all()
-#     return render_template('order.html', orders=orders)
-
-if __name__ == '__main__':
-    app.run()
-
+        print(f"Error al obtener opciones: {response.status_code}")
+        return []  # Lista vacía en caso de error
+    
+def get_user_extras():
+    url = 'http://localhost:5000/extras'  
+    response = requests.get(url)
+    if response.status_code == 200:
+        extras = response.json()
+        print(f"Opciones recuperadas: {extras}")
+        return [option for option in extras]  # Filtrar por "carta"
+    else:
+        print(f"Error al obtener opciones: {response.status_code}")
+        return []
