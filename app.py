@@ -57,12 +57,15 @@ def get_dishes():
 @app.route('/dishes', methods=['POST'])
 def add_dish():
     data = request.get_json()
-    dish_text = data.get('text', '')
-    if dish_text:
-        database.add_dish(dish_text)
+    dish_name = data.get('name')
+    dish_price = data.get('price')
+    dish_image_url = data.get('image_url')
+    
+    if dish_name and isinstance(dish_price, (int, float)) and dish_image_url:
+        database.add_dish(dish_name, dish_price, dish_image_url)
         return jsonify({'success': True})
     else:
-        return jsonify({'success': False, 'error': 'No se proporcionó un nombre de plato'}), 400
+        return jsonify({'success': False, 'error': 'Debe proporcionar nombre, precio (numérico) y URL de la imagen del plato'}), 400
 
 @app.route('/dishes/<int:dish_id>', methods=['DELETE'])
 def delete_dish(dish_id):

@@ -3,7 +3,8 @@ import sett
 import json
 import time
 import database
-from flask import jsonify
+from flask import jsonify,send_file
+import os
 import sqlite3
 
 def obtener_Mensaje_whatsapp(message):
@@ -37,12 +38,14 @@ def enviar_Mensaje_whatsapp(data):
                                  headers=headers, 
                                  data=data)
         
-        if response.status_code == 200:
+        response_data = response.json()  # Parsea la respuesta JSON
+
+        if response.status_code == 200 and response_data.get('sent'):
             return 'mensaje enviado', 200
         else:
-            return 'error al enviar mensaje', response.status_code
+            return f'error al enviar mensaje: {response.text}', response.status_code
     except Exception as e:
-        return e,403
+        return f'error al enviar mensaje: {str(e)}', 403
     
 def text_Message(number,text):
     data = json.dumps(
@@ -215,6 +218,52 @@ def markRead_Message(messageId):
     )
     return data
 
+def listReply_Dish(number, user_options, body, footer, sedd, messageId):
+    try:
+        rows = []
+        for i, option in enumerate(user_options):
+            image_url = option['image_url']
+
+            # Añade la imagen como URL pública
+            rows.append(
+                {
+                    "id": sedd + "row" + str(i+1),
+                    "title": option['name'],            # Nombre del plato
+                    "description": f"Precio: {option['price']}",  # Precio
+                    # "image": image_url  # Elimina esta línea
+                }
+            )
+
+        data = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "body": {
+                    "text": body
+                },
+                "footer": {
+                    "text": footer
+                },
+                "action": {
+                    "button": "Ver Opciones",
+                    "sections": [
+                        {
+                            "title": "Platos",
+                            "rows": rows
+                        }
+                    ]
+                }
+            }
+        }
+
+        return enviar_Mensaje_whatsapp(json.dumps(data))  # Envía el mensaje usando la función de envío
+    except Exception as e:
+        return f'error al construir mensaje: {str(e)}', 403
+
+
 def administrar_chatbot(text,number, messageId, name):
     text = text.lower() #mensaje que envio el usuario
     list = []
@@ -239,8 +288,8 @@ def administrar_chatbot(text,number, messageId, name):
     elif "menú" in text:
         body = "Estos son los platos del día de hoy 🍲. Presiona para ver opciones: "
         footer = "Restaurante prueba"
-        user_options = get_dishes()  
-        listReply = listReply_Message(number, user_options, body, footer, "sed2", messageId)
+        dishes = get_dishes()  
+        listReply = listReply_Dish(number, dishes, body, footer, "sed2", messageId)
         list.append(listReply)
 
     elif "estado mi pedido" in text:
@@ -381,7 +430,7 @@ def get_dishes():
     if response.status_code == 200:
         dishes = response.json()
         print(f"Opciones recuperadas: {dishes}")
-        return [dish['name'] for dish in dishes]  # Solo retorna el nombre del plato
+        return dishes  # Retorna toda la información del plato
     else:
         print(f"Error al obtener opciones: {response.status_code}")
         return []

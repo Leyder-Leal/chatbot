@@ -52,7 +52,9 @@ def initialize_database():
     cursor = connection.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS dish (
                       id INTEGER PRIMARY KEY,
-                      name TEXT)''')
+                      name TEXT,
+                      price REAL,
+                      image_url TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS addition (
                       id INTEGER PRIMARY KEY,
                       name TEXT)''')
@@ -69,15 +71,15 @@ def initialize_database():
 def get_all_dishes():
     connection = sqlite3.connect('database.db')
     cursor = connection.cursor()
-    cursor.execute('SELECT * FROM dish')
-    dishes = [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
+    cursor.execute('SELECT id, name, price, image_url FROM dish')  # Asegúrate de seleccionar el ID
+    dishes = [{'id': row[0], 'name': row[1], 'price': row[2], 'image_url': row[3]} for row in cursor.fetchall()]
     connection.close()
     return dishes
 
-def add_dish(name):
+def add_dish(name, price, image_url):
     connection = sqlite3.connect('database.db')
     cursor = connection.cursor()
-    cursor.execute('INSERT INTO dish (name) VALUES (?)', (name,))
+    cursor.execute('INSERT INTO dish (name, price, image_url) VALUES (?, ?, ?)', (name, price, image_url))
     connection.commit()
     connection.close()
 

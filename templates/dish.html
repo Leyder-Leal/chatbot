@@ -10,12 +10,14 @@
         {% for dish in dishes %}
             <li>
                 {{ dish.name }}
-                <button onclick="deleteDish({{ dish.id }})">Eliminar</button>
+                <button onclick="deleteDish({{ dish.id }})">Eliminar</button> <!-- Aquí se agrega dish.id -->
             </li>
         {% endfor %}
     </ul>
     <form id="add-dish">
-        <input type="text" id="dish" name="text" placeholder="Nueva opción">
+        <input type="text" id="dish-name" name="name" placeholder="Nombre del plato">
+        <input type="number" id="dish-price" name="price" placeholder="Precio del plato">
+        <input type="text" id="dish-image-url" name="image_url" placeholder="URL de la imagen">
         <button type="submit">Agregar</button>
     </form>
     <script src="static/dish.js"></script>

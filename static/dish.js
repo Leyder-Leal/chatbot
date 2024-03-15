@@ -1,12 +1,12 @@
-const dishesList = document.getElementById('dishes');
-
 function attachSubmitListener() {
   const addDishesForm = document.getElementById('add-dish');
   if (addDishesForm) {
     addDishesForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const dishText = document.getElementById('dish').value;
+      const dishName = document.getElementById('dish-name').value;
+      const dishPrice = parseFloat(document.getElementById('dish-price').value);
+      const dishImageUrl = document.getElementById('dish-image-url').value;
 
       try {
         const response = await fetch('/dishes', {
@@ -14,7 +14,7 @@ function attachSubmitListener() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ text: dishText }),
+          body: JSON.stringify({ name: dishName, price: dishPrice, image_url: dishImageUrl }),
         });
 
         if (!response.ok) {
@@ -28,11 +28,8 @@ function attachSubmitListener() {
           return;
         }
 
-        const dishElement = document.createElement('li');
-        dishElement.textContent = dishText;
-        dishesList.appendChild(dishElement);
-
-        addDishesForm.reset();
+        // Recarga la página después de agregar el plato
+        window.location.reload();
 
       } catch (error) {
         console.error('Error al agregar el plato:', error);
