@@ -2,6 +2,9 @@ import requests
 import sett
 import json
 import time
+import database
+from flask import jsonify
+import sqlite3
 
 def obtener_Mensaje_whatsapp(message):
     if 'type' not in message :
@@ -220,7 +223,9 @@ def administrar_chatbot(text,number, messageId, name):
     list.append(markRead)
     global estado 
     global direccion
-    time.sleep(2)
+    global nombre
+    global plato
+    global adicion
 
     if "hola" in text or "sí, por favor." in text:
         body = "¡Hola! 👋 Bienvenido al Restaurante Prueba. ¿Cómo puedo ayudarte hoy?"
@@ -232,15 +237,42 @@ def administrar_chatbot(text,number, messageId, name):
         list.append(replyButtonData)
         
     elif "menú" in text:
-        body = "Estos son los platos del dia de hoy🍲, presiona en ver opciones: "
+        body = "Estos son los platos del día de hoy 🍲. Presiona para ver opciones: "
         footer = "Restaurante prueba"
-        user_options = get_dishes()
-        listReply = listReply_Message(number, user_options, body, footer, "sed2",messageId)
+        user_options = get_dishes()  
+        listReply = listReply_Message(number, user_options, body, footer, "sed2", messageId)
         list.append(listReply)
 
-    elif any(dish in text for dish in get_dishes()): 
-        dish = text  
-        body = f"Pediste {dish}😋, ¿estás segur@ que quieres realizar este pedido?"
+    elif "estado mi pedido" in text:
+        textMessage = text_Message(number,"Ingresa el numero de tu ticket:")
+        enviar_Mensaje_whatsapp(textMessage)
+        estado = "esperando_ticket"
+        
+    elif estado == "esperando_ticket":
+        estado = ""
+        if text.isdigit():
+            ticket_numero = int(text)
+            connection = sqlite3.connect('database.db')
+            cursor = connection.cursor()
+            cursor.execute('SELECT * FROM "order" WHERE ticket = ?', (ticket_numero,))
+            ticket_info = cursor.fetchone()
+            connection.close()
+
+            if ticket_info:
+                textMessage = text_Message(number, "pedido preparando.")
+                enviar_Mensaje_whatsapp(textMessage)
+            else:
+                textMessage = text_Message(number, "El número de ticket ingresado no existe. Por favor, inténtalo nuevamente.")
+                enviar_Mensaje_whatsapp(textMessage)
+                estado = "esperando_ticket"
+        else:
+            textMessage = text_Message(number, "Por favor, ingresa un número de ticket válido.")
+            enviar_Mensaje_whatsapp(textMessage)
+            estado = "esperando_ticket"
+
+    elif any(dish.lower() in text for dish in get_dishes()): 
+        plato = text  
+        body = f"Pediste {plato}😋, ¿estás segur@ que quieres realizar este pedido?"
         footer = "Restaurante prueba"
         options = ["✅ Si.", "❌ No, gracias."]
         replyButtonData = buttonReply_Message(number, options, body, footer, "sed3", messageId)
@@ -253,21 +285,24 @@ def administrar_chatbot(text,number, messageId, name):
         listReply = listReply_Message(number, user_options, body, footer, "sed4",messageId)
         list.append(listReply)
     
-    elif any(extra in text for extra in get_addition()) or "no." in text:
+    elif any(addition.lower() in text for addition in get_addition()) or "no." in text:
+        adicion = text
         body = f"¿Como deseas recibir tu pedido📋?"
         footer = "Restaurante prueba"
         options = ["Recoger en Sitio 🏬", "Domicilio 🏡"]
         replyButtonData = buttonReply_Message(number, options, body, footer, "sed5", messageId)
         list.append(replyButtonData)
+        estado = "entrega"
     
-    elif "recoger en sitio" in text:
+    elif estado == "entrega" and "recoger en sitio" in text:
         body = "Ok, lo esperamos en 10 minutos⏱, ¿Necesitas ayuda con algo más hoy?"
         footer = "Restaurante prueba"
         options = ["✅ Sí, por favor.", "❌ No, gracias."]
         replyButtonData = buttonReply_Message(number, options, body, footer, "sed6", messageId)
         list.append(replyButtonData)
+        estado = ""
         
-    elif "domicilio" in text or "no, corregir." in text:
+    elif estado == "entrega" or "no, corregir." in text:
         textMessage = text_Message(number,"Ok😊, Ingresa la dirección de entrega: ")
         enviar_Mensaje_whatsapp(textMessage)
         estado = "esperando_direccion"
@@ -290,17 +325,30 @@ def administrar_chatbot(text,number, messageId, name):
     elif "confirmar" in text:
         textMessage = text_Message(number, "Espera un momento el numero del ticket..")
         enviar_Mensaje_whatsapp(textMessage)
-        time.sleep(2)
-        ticket =+ 1
-        body = f"Tu pedido se ha realizado con exito✅. El numero de ticket de tu pedido es: '{ticket}'. ¿Necesitas ayuda con algo más hoy?"
-        footer = "Restaurante prueba"
-        options = ["✅ Sí, por favor.", "❌ No, gracias."]
-        replyButtonData = buttonReply_Message(number, options, body, footer, "sed8", messageId)
-        list.append(replyButtonData)
-
-    elif "estado mi pedido" in text:
-        textMessage = text_Message(number,"Ingresa el numero de tu ticket:")
-        enviar_Mensaje_whatsapp(textMessage)
+        
+        connection = sqlite3.connect('database.db')
+        cursor = connection.cursor()
+        cursor.execute('SELECT MAX(ticket) FROM "order"')
+        last_ticket = cursor.fetchone()[0]
+        if last_ticket is None:
+            last_ticket = 0
+            
+        ticket = last_ticket + 1
+        client = nombre
+        address = direccion
+        dish = plato
+        addition = adicion
+        print(f"Ticket: {ticket}, Cliente: {client}, Dirección: {address}, Plato: {dish}, Adición: {addition}")
+        if ticket and client and address and dish and addition:
+            database.add_order(ticket, client, address, dish, addition)
+            time.sleep(2)
+            body = f"Tu pedido se ha realizado con exito✅. El numero de ticket de tu pedido es: '{ticket}'. ¿Necesitas ayuda con algo más hoy?"
+            footer = "Restaurante prueba"
+            options = ["✅ Sí, por favor.", "❌ No, gracias."]
+            replyButtonData = buttonReply_Message(number, options, body, footer, "sed8", messageId)
+            list.append(replyButtonData)
+        else:
+            return jsonify({'success': False, 'error': 'No se proporcionó el cliente o la dirección'}), 400
     
     elif "reservacion" in text:
         body = "Por favor, selecciona una fecha y hora disponible:"
@@ -328,15 +376,15 @@ def administrar_chatbot(text,number, messageId, name):
         enviar_Mensaje_whatsapp(item)        
 
 def get_dishes():
-    url = 'http://localhost:5000/dishes'  
+    url = 'http://localhost:5000/dishes'
     response = requests.get(url)
     if response.status_code == 200:
         dishes = response.json()
         print(f"Opciones recuperadas: {dishes}")
-        return [{'id': i + 1, 'name': dish} for i, dish in enumerate(dishes)]
+        return [dish['name'] for dish in dishes]  # Solo retorna el nombre del plato
     else:
         print(f"Error al obtener opciones: {response.status_code}")
-        return []  # Lista vacía en caso de error
+        return []
     
 def get_addition():
     url = 'http://localhost:5000/additions'
@@ -344,7 +392,7 @@ def get_addition():
     if response.status_code == 200:
         additions = response.json()
         print(f"Opciones recuperadas: {additions}")
-        return [{'id': i + 1, 'name': addition} for i, addition in enumerate(additions)]
+        return [addition['name'] for addition in additions]  # Solo retorna el nombre del plato
     else:
         print(f"Error al obtener opciones: {response.status_code}")
         return []
