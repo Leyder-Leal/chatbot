@@ -3,8 +3,7 @@ import sett
 import json
 import time
 import database
-from flask import jsonify,send_file
-import os
+from flask import jsonify
 import sqlite3
 
 def obtener_Mensaje_whatsapp(message):
@@ -37,15 +36,14 @@ def enviar_Mensaje_whatsapp(data):
         response = requests.post(whatsapp_url, 
                                  headers=headers, 
                                  data=data)
-        
-        response_data = response.json()  # Parsea la respuesta JSON
-
-        if response.status_code == 200 and response_data.get('sent'):
+        print("Estado de la respuesta:", response.status_code)
+        if response.status_code == 200:
             return 'mensaje enviado', 200
         else:
-            return f'error al enviar mensaje: {response.text}', response.status_code
+            print("Error al enviar mensaje:", e)
+            return 'error al enviar mensaje', response.status_code
     except Exception as e:
-        return f'error al enviar mensaje: {str(e)}', 403
+        return e,403
     
 def text_Message(number,text):
     data = json.dumps(
@@ -218,23 +216,19 @@ def markRead_Message(messageId):
     )
     return data
 
-def listReply_Dish(number, user_options, body, footer, sedd, messageId):
-    try:
-        rows = []
-        for i, option in enumerate(user_options):
-            image_url = option['image_url']
+def listReply_Dish(number, dishes, body, footer, sedd, messageId):
+    rows = []
+    for i, dish in enumerate(dishes):
+        rows.append(
+            {
+                "id": sedd + "row" + str(i+1),
+                "title": dish['name'],
+                "description": f"Precio: {dish['price']}",
+            }
+        )
 
-            # Añade la imagen como URL pública
-            rows.append(
-                {
-                    "id": sedd + "row" + str(i+1),
-                    "title": option['name'],            # Nombre del plato
-                    "description": f"Precio: {option['price']}",  # Precio
-                    # "image": image_url  # Elimina esta línea
-                }
-            )
-
-        data = {
+    data = json.dumps(
+        {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
             "to": number,
@@ -258,11 +252,10 @@ def listReply_Dish(number, user_options, body, footer, sedd, messageId):
                 }
             }
         }
+    )
+    return data
 
-        return enviar_Mensaje_whatsapp(json.dumps(data))  # Envía el mensaje usando la función de envío
-    except Exception as e:
-        return f'error al construir mensaje: {str(e)}', 403
-
+estado = ""
 
 def administrar_chatbot(text,number, messageId, name):
     text = text.lower() #mensaje que envio el usuario
@@ -270,12 +263,8 @@ def administrar_chatbot(text,number, messageId, name):
     print("mensaje del usuario: ",text)
     markRead = markRead_Message(messageId)
     list.append(markRead)
-    global estado 
-    global direccion
-    global nombre
-    global plato
-    global adicion
-
+    global estado
+    
     if "hola" in text or "sí, por favor." in text:
         body = "¡Hola! 👋 Bienvenido al Restaurante Prueba. ¿Cómo puedo ayudarte hoy?"
         footer = "Restaurante Prueba"
@@ -292,41 +281,14 @@ def administrar_chatbot(text,number, messageId, name):
         listReply = listReply_Dish(number, dishes, body, footer, "sed2", messageId)
         list.append(listReply)
 
-    elif "estado mi pedido" in text:
-        textMessage = text_Message(number,"Ingresa el numero de tu ticket:")
-        enviar_Mensaje_whatsapp(textMessage)
-        estado = "esperando_ticket"
-        
-    elif estado == "esperando_ticket":
-        estado = ""
-        if text.isdigit():
-            ticket_numero = int(text)
-            connection = sqlite3.connect('database.db')
-            cursor = connection.cursor()
-            cursor.execute('SELECT * FROM "order" WHERE ticket = ?', (ticket_numero,))
-            ticket_info = cursor.fetchone()
-            connection.close()
-
-            if ticket_info:
-                textMessage = text_Message(number, "pedido preparando.")
-                enviar_Mensaje_whatsapp(textMessage)
-            else:
-                textMessage = text_Message(number, "El número de ticket ingresado no existe. Por favor, inténtalo nuevamente.")
-                enviar_Mensaje_whatsapp(textMessage)
-                estado = "esperando_ticket"
-        else:
-            textMessage = text_Message(number, "Por favor, ingresa un número de ticket válido.")
-            enviar_Mensaje_whatsapp(textMessage)
-            estado = "esperando_ticket"
-
-    elif any(dish.lower() in text for dish in get_dishes()): 
+    elif any(dish['name'].lower() == text.lower() for dish in get_dishes()): 
         plato = text  
         body = f"Pediste {plato}😋, ¿estás segur@ que quieres realizar este pedido?"
         footer = "Restaurante prueba"
         options = ["✅ Si.", "❌ No, gracias."]
         replyButtonData = buttonReply_Message(number, options, body, footer, "sed3", messageId)
         list.append(replyButtonData)
-    
+        
     elif "si." in text:
         body = "¿Deseas añadir algun ingrediente adicional😄?, presiona en ver opciones:"
         footer = "Restaurante prueba"
@@ -361,7 +323,7 @@ def administrar_chatbot(text,number, messageId, name):
         textMessage = text_Message(number, "Ingresa tu nombre😄: ")
         enviar_Mensaje_whatsapp(textMessage)
         estado = "esperando_nombre"
-
+    
     elif estado == "esperando_nombre":
         nombre = text
         body = f"Confirmas que tu dirección de entrega es {direccion} y tu nombre es {nombre}"
@@ -370,7 +332,7 @@ def administrar_chatbot(text,number, messageId, name):
         estado = ""
         replyButtonData = buttonReply_Message(number, options, body, footer, "sed7", messageId)
         list.append(replyButtonData)
-        
+    
     elif "confirmar" in text:
         textMessage = text_Message(number, "Espera un momento el numero del ticket..")
         enviar_Mensaje_whatsapp(textMessage)
@@ -399,7 +361,7 @@ def administrar_chatbot(text,number, messageId, name):
         else:
             return jsonify({'success': False, 'error': 'No se proporcionó el cliente o la dirección'}), 400
     
-    elif "reservacion" in text:
+    elif "reservacion" in text.lower():
         body = "Por favor, selecciona una fecha y hora disponible:"
         footer = "Restaurante prueba"
         user_options = ["📆 7 de junio, 2:00 PM"]
@@ -416,7 +378,34 @@ def administrar_chatbot(text,number, messageId, name):
     elif "no, gracias." in text:
         textMessage = text_Message(number,"Hasta pronto!😊. Escribe 'hola' si necesitas ayuda")
         list.append(textMessage)
+    
+    elif "estado mi pedido" in text:
+        textMessage = text_Message(number,"Ingresa el numero de tu ticket:")
+        enviar_Mensaje_whatsapp(textMessage)
+        estado = "esperando_ticket"
         
+    elif estado == "esperando_ticket":
+        estado = ""
+        if text.isdigit():
+            ticket_numero = int(text)
+            connection = sqlite3.connect('database.db')
+            cursor = connection.cursor()
+            cursor.execute('SELECT * FROM "order" WHERE ticket = ?', (ticket_numero,))
+            ticket_info = cursor.fetchone()
+            connection.close()
+
+            if ticket_info:
+                textMessage = text_Message(number, "pedido preparando.")
+                enviar_Mensaje_whatsapp(textMessage)
+            else:
+                textMessage = text_Message(number, "El número de ticket ingresado no existe. Por favor, inténtalo nuevamente.")
+                enviar_Mensaje_whatsapp(textMessage)
+                estado = "esperando_ticket"
+        else:
+            textMessage = text_Message(number, "Por favor, ingresa un número de ticket válido.")
+            enviar_Mensaje_whatsapp(textMessage)
+            estado = "esperando_ticket"
+            
     else:
         data = text_Message(number,"Lo siento, no entendí lo que dijiste😔. Si necesitas algo, escribe 'hola' o elige una de las opciones ofrecidas.")
         list.append(data)

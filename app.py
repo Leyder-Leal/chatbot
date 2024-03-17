@@ -40,13 +40,45 @@ def recibir_mensajes():
         contacts = value['contacts'][0]
         name = contacts['profile']['name']
         text = services.obtener_Mensaje_whatsapp(message)
-
         services.administrar_chatbot(text, number, messageId, name)
         return 'enviado'
 
     except Exception as e:
         return 'no enviado ' + str(e)
 
+@app.route('/products', methods=['GET'])
+def get_products():
+    products = database.get_all_products()
+    return jsonify(products)
+
+@app.route('/products', methods=['POST'])
+def add_product():
+    data = request.get_json()
+    product_name = data.get('name')
+    product_description = data.get('description')
+    product_price = data.get('price')
+    product_image_url = data.get('image_url')
+    product_details_url = data.get('details_url')
+    product_details_payload = data.get('details_payload')
+
+    if product_name and isinstance(product_price, (int, float)) and product_image_url:
+        database.add_product(product_name, product_description, product_price, product_image_url, product_details_url, product_details_payload)
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Debe proporcionar nombre, precio (numérico) y URL de la imagen del producto'}), 400
+
+@app.route('/products/<int:product_id>', methods=['DELETE'])
+def delete_product(product_id):
+    success = database.delete_product(product_id)
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'El producto no existe'}), 404
+
+@app.route('/product')
+def show_products():
+    products = database.get_all_products()
+    return render_template('product.html', products=products)
 
 
 @app.route('/dishes', methods=['GET'])
@@ -144,6 +176,9 @@ def delete_order(order_id):
 def show_orders():
     orders = database.get_all_orders()
     return render_template('order.html', orders=orders)
+
+if __name__ == '__main__':
+    app.run()
 
 #//////////////////////////POSTGRESSQL///////////////////////////
 # @app.route('/dishes', methods=['GET'])
@@ -243,7 +278,4 @@ def show_orders():
 # def show_orders():
 #     orders = session.query(Order).all()
 #     return render_template('order.html', orders=orders)
-
-if __name__ == '__main__':
-    app.run()
 

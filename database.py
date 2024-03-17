@@ -50,6 +50,14 @@ import sqlite3
 def initialize_database():
     connection = sqlite3.connect('database.db')
     cursor = connection.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS product (
+                      id INTEGER PRIMARY KEY,
+                      name TEXT,
+                      description TEXT,
+                      price REAL,
+                      image_url TEXT,
+                      details_url TEXT,
+                      details_payload TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS dish (
                       id INTEGER PRIMARY KEY,
                       name TEXT,
@@ -68,10 +76,34 @@ def initialize_database():
     connection.commit()
     connection.close()
 
+
+def get_all_products():
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+    cursor.execute('SELECT * FROM product')
+    products = [{'id': row[0], 'name': row[1], 'description': row[2], 'price': row[3], 'image_url': row[4], 'details_url': row[5], 'details_payload': row[6]} for row in cursor.fetchall()]
+    connection.close()
+    return products
+
+def add_product(name, description, price, image_url, details_url, details_payload):
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+    cursor.execute('INSERT INTO product (name, description, price, image_url, details_url, details_payload) VALUES (?, ?, ?, ?, ?, ?)', (name, description, price, image_url, details_url, details_payload))
+    connection.commit()
+    connection.close()
+
+def delete_product(product_id):
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+    cursor.execute('DELETE FROM product WHERE id = ?', (product_id,))
+    connection.commit()
+    connection.close()
+
+
 def get_all_dishes():
     connection = sqlite3.connect('database.db')
     cursor = connection.cursor()
-    cursor.execute('SELECT id, name, price, image_url FROM dish')  # Asegúrate de seleccionar el ID
+    cursor.execute('SELECT * FROM dish')
     dishes = [{'id': row[0], 'name': row[1], 'price': row[2], 'image_url': row[3]} for row in cursor.fetchall()]
     connection.close()
     return dishes
