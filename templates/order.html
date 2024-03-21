@@ -2,44 +2,105 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Chatbot</title>
-</head>
-<body>
-    <h1>Pedidos</h1>
-    <ul id="orders">
-        {% for order in orders %}
-            <li>
-                Ticket: {{ order.ticket }}, Cliente: {{ order.client }}, Dirección: {{ order.address }}, Plato: {{ order.dish }}, Adición: {{ order.addition }}
-                <button onclick="deleteOrder({{ order.id }})">Eliminar</button>
-            </li>
-        {% endfor %}
-    </ul>
-    <form id="add-order">
-        <input type="text" name="address" placeholder="Dirección">
-        <input type="text" name="client" placeholder="Cliente">
-        <input type="text" name="ticket" placeholder="Ticket">
-        <input type="text" name="dish" placeholder="Plato">
-        <input type="text" name="addition" placeholder="Adición">
-        <button type="submit">Agregar</button>
-    </form>
-    <script src="static/order.js"></script>
-    <script>
-        async function deleteOrder(orderId) {
-            try {
-                const response = await fetch(`/orders/${orderId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    throw new Error('Error al eliminar la adición');
-                }
-
-                window.location.reload();
-            } catch (error) {
-                console.error('Error al eliminar la adición:', error);
-                // Maneja el error apropiadamente
-            }
+    <title>Restaurante Prueba</title>
+    <!-- Agregar enlace a Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Estilos personalizados -->
+    <style>
+        /* Estilo para el encabezado */
+        header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px;
+            text-align: center;
         }
-    </script>
+
+        /* Estilo para el formulario */
+        #add-order {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 5px;
+            background-color: white; /* Fondo blanco */
+            border: 1px solid #ced4da;
+        }
+
+        /* Estilo para el pie de página */
+        footer {
+            background-color: #343a40;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+<body style="background-color: #F4F4F4"> <!-- Fondo gris claro -->
+    <header>
+        <h1>Restaurante Prueba</h1>
+    </header>
+    <main class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="text-center mb-4">Pedidos</h2>
+                        <ul class="list-group" id="orders">
+                            {% for order in orders %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Ticket: {{ order.ticket }}, Cliente: {{ order.client }}, Dirección: {{ order.address }}, Plato: {{ order.dish }}, Adición: {{ order.addition }}, estado: {{ order.status }}
+                                    <form id="update-order-{{ order.id }}">
+                                        <select name="status" class="form-control">
+                                            <option value="preparando">Preparando</option>
+                                            <option value="en camino">En Camino</option>
+                                            <option value="entregado">Entregado</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-primary">Actualizar Estado</button>
+                                    </form>
+                                    <button class="btn btn-danger" onclick="deleteOrder({{ order.id }})">Eliminar</button>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                        <form id="add-order" class="mt-4">
+                            <div class="form-group">
+                                <label for="order-address">Dirección:</label>
+                                <input type="text" id="order-address" name="address" class="form-control" placeholder="Dirección" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="order-client">Cliente:</label>
+                                <input type="text" id="order-client" name="client" class="form-control" placeholder="Cliente" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="order-ticket">Ticket:</label>
+                                <input type="text" id="order-ticket" name="ticket" class="form-control" placeholder="Ticket" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="order-dish">Plato:</label>
+                                <input type="text" id="order-dish" name="dish" class="form-control" placeholder="Plato" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="order-addition">Adición:</label>
+                                <input type="text" id="order-addition" name="addition" class="form-control" placeholder="Adición">
+                            </div>
+                            <div class="form-group">
+                                <label for="order-status">Estado:</label>
+                                <select id="order-status" name="status" class="form-control" required>
+                                    <option value="preparando">Preparando</option>
+                                    <option value="en camino">En Camino</option>
+                                    <option value="entregado">Entregado</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Agregar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <script src="static/order.js"></script>
+    </footer>
 </body>
 </html>

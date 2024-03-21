@@ -59,6 +59,48 @@ def text_Message(number,text):
     )
     return data
 
+def catalog_Template_Message(number, template_name, language_code, body_type, body_text, thumbnail_product_retailer_id):
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {
+                    "code": language_code
+                },
+                "components": [
+                    {
+                        "type": body_type,
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": body_text
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "CATALOG",
+                        "index": 0,
+                        "parameters": [
+                            {
+                                "type": "action",
+                                "action": {
+                                    "thumbnail_product_retailer_id": thumbnail_product_retailer_id
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    )
+    return data
+
+
 def buttonReply_Message(number, options, body, footer, sedd, messageId):
     buttons = []
     for i, option in enumerate(options):
@@ -94,7 +136,7 @@ def buttonReply_Message(number, options, body, footer, sedd, messageId):
     )
     return data
 
-def listReply_Message(number, user_options, body, footer, sedd, messageId):
+def listReply_Addition(number, user_options, body, footer, sedd, messageId):
     rows = []
     for i, option in enumerate(user_options):
         print(f"opciones: {option}")
@@ -255,7 +297,50 @@ def listReply_Dish(number, dishes, body, footer, sedd, messageId):
     )
     return data
 
+def listReply_Addition(number, additions, body, footer, sedd, messageId):
+    rows = []
+    for i, addition in enumerate(additions):
+        rows.append(
+            {
+                "id": sedd + "row" + str(i+1),
+                "title": addition['name'],
+                "description": f"Precio: {addition['price']}",
+            }
+        )
+
+    data = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": number,
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "body": {
+                    "text": body
+                },
+                "footer": {
+                    "text": footer
+                },
+                "action": {
+                    "button": "Ver Opciones",
+                    "sections": [
+                        {
+                            "title": "Adiciones",
+                            "rows": rows
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    return data
+
 estado = ""
+direccion =  ""
+nombre = ""
+plato = ""
+adicion = ""
 
 def administrar_chatbot(text,number, messageId, name):
     text = text.lower() #mensaje que envio el usuario
@@ -264,6 +349,10 @@ def administrar_chatbot(text,number, messageId, name):
     markRead = markRead_Message(messageId)
     list.append(markRead)
     global estado
+    global direccion
+    global nombre
+    global plato
+    global adicion
     
     if "hola" in text or "sí, por favor." in text:
         body = "¡Hola! 👋 Bienvenido al Restaurante Prueba. ¿Cómo puedo ayudarte hoy?"
@@ -293,10 +382,10 @@ def administrar_chatbot(text,number, messageId, name):
         body = "¿Deseas añadir algun ingrediente adicional😄?, presiona en ver opciones:"
         footer = "Restaurante prueba"
         user_options = get_addition()
-        listReply = listReply_Message(number, user_options, body, footer, "sed4",messageId)
+        listReply = listReply_Addition(number, user_options, body, footer, "sed4",messageId)
         list.append(listReply)
     
-    elif any(addition.lower() in text for addition in get_addition()) or "no." in text:
+    elif any(addition['name'].lower() == text.lower() for addition in get_addition()):
         adicion = text
         body = f"¿Como deseas recibir tu pedido📋?"
         footer = "Restaurante prueba"
@@ -362,22 +451,9 @@ def administrar_chatbot(text,number, messageId, name):
             return jsonify({'success': False, 'error': 'No se proporcionó el cliente o la dirección'}), 400
     
     elif "reservacion" in text.lower():
-        body = "Por favor, selecciona una fecha y hora disponible:"
-        footer = "Restaurante prueba"
-        user_options = ["📆 7 de junio, 2:00 PM"]
-        listReply = listReply_Message(number, user_options, body, footer, "sed9",messageId)
-        list.append(listReply)
-        
-    elif "7 de junio, 2:00 pm" in text:
-        body = "Excelente, has reservado para el 7 de junio a las 2:00 PM. Te enviaré un recordatorio un día antes. ¿Necesitas ayuda con algo más hoy?"
-        footer = "Restaurante prueba"
-        options = ["✅ Sí, por favor.", "❌ No, gracias."]
-        buttonReply = buttonReply_Message(number, options, body, footer, "sed10",messageId)
-        list.append(buttonReply)
-        
-    elif "no, gracias." in text:
-        textMessage = text_Message(number,"Hasta pronto!😊. Escribe 'hola' si necesitas ayuda")
-        list.append(textMessage)
+        textMessage = text_Message(number,"Para realizar una reservación, por favor visita el siguiente enlace: https://frill-innovative-durian.glitch.me/reservation")
+        print(number)
+        enviar_Mensaje_whatsapp(textMessage)
     
     elif "estado mi pedido" in text:
         textMessage = text_Message(number,"Ingresa el numero de tu ticket:")
@@ -388,14 +464,11 @@ def administrar_chatbot(text,number, messageId, name):
         estado = ""
         if text.isdigit():
             ticket_numero = int(text)
-            connection = sqlite3.connect('database.db')
-            cursor = connection.cursor()
-            cursor.execute('SELECT * FROM "order" WHERE ticket = ?', (ticket_numero,))
-            ticket_info = cursor.fetchone()
-            connection.close()
-
-            if ticket_info:
-                textMessage = text_Message(number, "pedido preparando.")
+            status = database.get_order_status(ticket_numero)
+            if status:
+                textMessage = text_Message(number, f"El estado del pedido es: {status}")
+                enviar_Mensaje_whatsapp(textMessage)
+                textMessage = text_Message(number, f"Si necesitas ayuda, escríbeme 'hola' o elige una de las opciones que te ofrezco.")
                 enviar_Mensaje_whatsapp(textMessage)
             else:
                 textMessage = text_Message(number, "El número de ticket ingresado no existe. Por favor, inténtalo nuevamente.")
@@ -405,6 +478,10 @@ def administrar_chatbot(text,number, messageId, name):
             textMessage = text_Message(number, "Por favor, ingresa un número de ticket válido.")
             enviar_Mensaje_whatsapp(textMessage)
             estado = "esperando_ticket"
+        
+    elif "no, gracias." in text:
+        textMessage = text_Message(number,"Hasta pronto!😊. Escribe 'hola' si necesitas ayuda")
+        list.append(textMessage)
             
     else:
         data = text_Message(number,"Lo siento, no entendí lo que dijiste😔. Si necesitas algo, escribe 'hola' o elige una de las opciones ofrecidas.")
@@ -412,6 +489,7 @@ def administrar_chatbot(text,number, messageId, name):
 
     for item in list:
         enviar_Mensaje_whatsapp(item)        
+
 
 def get_dishes():
     url = 'http://localhost:5000/dishes'
@@ -430,7 +508,7 @@ def get_addition():
     if response.status_code == 200:
         additions = response.json()
         print(f"Opciones recuperadas: {additions}")
-        return [addition['name'] for addition in additions]  # Solo retorna el nombre del plato
+        return additions
     else:
         print(f"Error al obtener opciones: {response.status_code}")
         return []

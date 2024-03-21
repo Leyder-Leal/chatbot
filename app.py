@@ -103,9 +103,9 @@ def add_dish():
 def delete_dish(dish_id):
     success = database.delete_dish(dish_id)
     if success:
-        return jsonify({'success': True})
+        return jsonify({'success': True}), 200
     else:
-        return jsonify({'success': False, 'error': 'El plato no existe'}), 404
+        return jsonify({'success': False, 'error': 'El plato no existe'}), 200
 
 @app.route('/dish')
 def show_dishes():
@@ -122,20 +122,23 @@ def get_additions():
 @app.route('/additions', methods=['POST'])
 def add_addition():
     data = request.get_json()
-    addition_text = data.get('text', '')
-    if addition_text:
-        database.add_addition(addition_text)
+    addition_name = data.get('name')
+    addition_price = data.get('price')
+    addition_image_url = data.get('image_url')
+    
+    if addition_name and isinstance(addition_price, (int, float)) and addition_image_url:
+        database.add_addition(addition_name, addition_price, addition_image_url)
         return jsonify({'success': True})
     else:
-        return jsonify({'success': False, 'error': 'No se proporcionó un nombre de la adicion'}), 400
+        return jsonify({'success': False, 'error': 'Debe proporcionar nombre, precio (numérico) y URL de la imagen de la adición'}), 400
 
 @app.route('/additions/<int:addition_id>', methods=['DELETE'])
 def delete_addition(addition_id):
     success = database.delete_addition(addition_id)
     if success:
-        return jsonify({'success': True})
+        return jsonify({'success': True}), 200
     else:
-        return jsonify({'success': False, 'error': 'La adicion no existe'}), 404
+        return jsonify({'success': False, 'error': 'La adicion no existe'}), 200
 
 @app.route('/addition')
 def show_additions():
@@ -143,10 +146,9 @@ def show_additions():
     return render_template('addition.html', additions=additions)
 
 
-
 @app.route('/orders', methods=['GET'])
 def get_orders():
-    orders = database.get_all_orders()
+    orders = database.get_all_orders_with_status()
     return jsonify(orders)
 
 @app.route('/orders', methods=['POST'])
@@ -163,23 +165,74 @@ def add_order():
     else:
         return jsonify({'success': False, 'error': 'No se proporcionó el cliente la dirección o el ticket'}), 400
 
+@app.route('/orders/<int:order_id>', methods=['PUT'])
+def update_order_status(order_id):
+    try:
+        data = request.json  # Simplifico el acceso a los datos JSON
+        new_status = data.get('status')
+        
+        if new_status is None:
+            return jsonify({'success': False, 'error': 'No se proporcionó el nuevo estado'}), 400
+        
+        # Actualizar el estado del pedido en la base de datos
+        database.update_order_status(order_id, new_status)
+        
+        return jsonify({'success': True})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/orders/<int:order_id>', methods=['DELETE'])
 def delete_order(order_id):
     success = database.delete_order(order_id)
     if success:
-        return jsonify({'success': True})
+        return jsonify({'success': True}), 200  # Devolver código de estado 200 (OK)
     else:
-        return jsonify({'success': False, 'error': 'El orden no existe'}), 404
+        return jsonify({'success': False, 'error': 'El orden no existe'}), 200
 
 @app.route('/order')
 def show_orders():
-    orders = database.get_all_orders()
+    orders = database.get_all_orders_with_status()
     return render_template('order.html', orders=orders)
+
+
+@app.route('/reservations', methods=['GET'])
+def get_reservations():
+    reservations = database.get_all_reservations()
+    return jsonify(reservations)
+
+@app.route('/reservations', methods=['POST'])
+def add_reservation():
+    data = request.get_json()
+    nombre = data.get('name', '')
+    numero = data.get('number', '')
+    personas = data.get('people', '')
+    fecha = data.get('date', '')
+    if nombre and numero and personas and fecha:
+        database.add_reservation(nombre, numero, personas, fecha)
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Falta información en la reservación'}), 400
+
+@app.route('/reservations/<int:reservation_id>', methods=['DELETE'])
+def delete_reservation(reservation_id):
+    success = database.delete_reservation(reservation_id)
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'La reservación no existe'}), 200
+
+@app.route('/reservation')
+def save_reservations():
+    return render_template('reservation.html')
+
+@app.route('/reservationlist')
+def show_reservations():
+    reservations = database.get_all_reservations()
+    return render_template('reservationlist.html', reservations=reservations)
 
 if __name__ == '__main__':
     app.run()
-
 #//////////////////////////POSTGRESSQL///////////////////////////
 # @app.route('/dishes', methods=['GET'])
 # def get_dishes():
