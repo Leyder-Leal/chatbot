@@ -1,8 +1,8 @@
 token = 'Leyder:)'
 
-whatsapp_token = 'EAAN2EVuj80sBOw84ZBISUgEQtiDOOmFQs4wZAdinITUzpjisJKeu72KpFy7NtgFGMkaBS5PzsMar1heglgUcmRsMhLHKy6u5PZBUpcwzJAUWc3oZCMjBgQjqEfL144EcJLQteCYv7xC9YaAvXWQs4tCAYsdrJXuslQ2CRviLX21tiSqtuKfyoTNBw9jCXIgPjoiyAhlSZA50JUbL5YQZDZD'
+whatsapp_token = 'EAAFuSkFQmIYBO1HeHvnljbErZCOBoVCNhkedvzndKz5pOo15uQhkiyD8t2Jjx1YQDLptMpCsNnMYeOz1X3AB7TqnIAU2iiWU0gPKbAKSfdxEzQ8PbM3akfRZAMtMBZCV0zJ0WaP2gl6gQLax8pgjWBOqLOFZAZBJJuy7TiZA1pNpGEZCEQZBPlWF69u32rXZC7VcRnh187vYSB8uzZAo967wZDZD'
 
-whatsapp_url = 'https://graph.facebook.com/v18.0/273501945840236/messages'
+whatsapp_url = 'https://graph.facebook.com/v18.0/209713618901804/messages'
 
 stickers = {
     "poyo_feliz": 984778742532668,

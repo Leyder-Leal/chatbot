@@ -5,10 +5,11 @@ import time
 import database
 from flask import jsonify
 import sqlite3
+import uuid
 
 def obtener_Mensaje_whatsapp(message):
-    if 'type' not in message :
-        text = 'mensaje no reconocido'
+    if 'type' not in message:
+        text = 'Mensaje no reconocido'  # More descriptive error message
         return text
 
     typeMessage = message['type']
@@ -21,85 +22,67 @@ def obtener_Mensaje_whatsapp(message):
     elif typeMessage == 'interactive' and message['interactive']['type'] == 'button_reply':
         text = message['interactive']['button_reply']['title']
     else:
-        text = 'mensaje no procesado'
-    
-    
+        text = 'Mensaje no procesado'  # More descriptive error message
+
     return text
+
+def send_catalog_message(number, template_name):
+    data = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": number,
+        "template": {
+            "name": template_name,
+            "language": "es"
+        },
+        "message_id": str(uuid.uuid4())  # Add a unique message ID
+    }
+    return json.dumps(data)
+
+def send_whatsapp_message(data):
+    whatsapp_token = sett.whatsapp_token
+    whatsapp_url = sett.whatsapp_url
+    headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {whatsapp_token}'}
+
+    try:
+        response = requests.post(whatsapp_url, headers=headers, data=data)
+        response.raise_for_status()  # Raise an exception for non-200 status codes
+        print("Response from send_whatsapp_message:", response.text)  # Add this line
+        return response.json()  # Assuming the response is JSON (check API documentation)
+    except requests.exceptions.RequestException as e:
+        print(f"Error enviando mensaje por WhatsApp: {e}")
+        return {'error': 'Error al enviar mensaje', 'status_code': 500}
 
 def enviar_Mensaje_whatsapp(data):
     try:
         whatsapp_token = sett.whatsapp_token
         whatsapp_url = sett.whatsapp_url
-        headers = {'Content-Type': 'application/json',
-                   'Authorization': 'Bearer ' + whatsapp_token}
-        print("se envia ", data)
-        response = requests.post(whatsapp_url, 
-                                 headers=headers, 
-                                 data=data)
+        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {whatsapp_token}'}
+        print("Se envía:", data)
+        response = requests.post(whatsapp_url, headers=headers, data=data)
         print("Estado de la respuesta:", response.status_code)
         if response.status_code == 200:
-            return 'mensaje enviado', 200
+            # Assuming successful response based on the API documentation
+            return 'Mensaje enviado', 200
         else:
-            print("Error al enviar mensaje:", e)
-            return 'error al enviar mensaje', response.status_code
+            print("Error al enviar mensaje:", response.text)
+            # Consider adding more specific error handling based on response code
+            return 'Error al enviar mensaje', response.status_code
     except Exception as e:
-        return e,403
+        print(f"Error inesperado: {e}")
+        return 'Error interno', 500
     
-def text_Message(number,text):
-    data = json.dumps(
-            {
-                "messaging_product": "whatsapp",    
-                "recipient_type": "individual",
-                "to": number,
-                "type": "text",
-                "text": {
-                    "body": text
-                }
-            }
-    )
-    return data
-
-def catalog_Template_Message(number, template_name, language_code, body_type, body_text, thumbnail_product_retailer_id):
-    data = json.dumps(
-        {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": number,
-            "type": "template",
-            "template": {
-                "name": template_name,
-                "language": {
-                    "code": language_code
-                },
-                "components": [
-                    {
-                        "type": body_type,
-                        "parameters": [
-                            {
-                                "type": "text",
-                                "text": body_text
-                            }
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "CATALOG",
-                        "index": 0,
-                        "parameters": [
-                            {
-                                "type": "action",
-                                "action": {
-                                    "thumbnail_product_retailer_id": thumbnail_product_retailer_id
-                                }
-                            }
-                        ]
-                    }
-                ]
-            }
+def text_Message(number, text):
+    data = json.dumps({
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": number,
+        "type": "text",
+        "text": {
+            "body": text
         }
-    )
+    })
     return data
-
 
 def buttonReply_Message(number, options, body, footer, sedd, messageId):
     buttons = []
@@ -130,46 +113,6 @@ def buttonReply_Message(number, options, body, footer, sedd, messageId):
                 },
                 "action": {
                     "buttons": buttons
-                }
-            }
-        }
-    )
-    return data
-
-def listReply_Addition(number, user_options, body, footer, sedd, messageId):
-    rows = []
-    for i, option in enumerate(user_options):
-        print(f"opciones: {option}")
-        rows.append(
-            {
-                "id": sedd + "row" + str(i+1),
-                "title": option,
-                "description": ""
-            }
-        )
-
-    data = json.dumps(
-        {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": number,
-            "type": "interactive",
-            "interactive": {
-                "type": "list",
-                "body": {
-                    "text": body
-                },
-                "footer": {
-                    "text": footer
-                },
-                "action": {
-                    "button": "Ver Opciones",
-                    "sections": [
-                        {
-                            "title": "Secciones",
-                            "rows": rows
-                        }
-                    ]
                 }
             }
         }
@@ -258,84 +201,6 @@ def markRead_Message(messageId):
     )
     return data
 
-def listReply_Dish(number, dishes, body, footer, sedd, messageId):
-    rows = []
-    for i, dish in enumerate(dishes):
-        rows.append(
-            {
-                "id": sedd + "row" + str(i+1),
-                "title": dish['name'],
-                "description": f"Precio: {dish['price']}",
-            }
-        )
-
-    data = json.dumps(
-        {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": number,
-            "type": "interactive",
-            "interactive": {
-                "type": "list",
-                "body": {
-                    "text": body
-                },
-                "footer": {
-                    "text": footer
-                },
-                "action": {
-                    "button": "Ver Opciones",
-                    "sections": [
-                        {
-                            "title": "Platos",
-                            "rows": rows
-                        }
-                    ]
-                }
-            }
-        }
-    )
-    return data
-
-def listReply_Addition(number, additions, body, footer, sedd, messageId):
-    rows = []
-    for i, addition in enumerate(additions):
-        rows.append(
-            {
-                "id": sedd + "row" + str(i+1),
-                "title": addition['name'],
-                "description": f"Precio: {addition['price']}",
-            }
-        )
-
-    data = json.dumps(
-        {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": number,
-            "type": "interactive",
-            "interactive": {
-                "type": "list",
-                "body": {
-                    "text": body
-                },
-                "footer": {
-                    "text": footer
-                },
-                "action": {
-                    "button": "Ver Opciones",
-                    "sections": [
-                        {
-                            "title": "Adiciones",
-                            "rows": rows
-                        }
-                    ]
-                }
-            }
-        }
-    )
-    return data
-
 estado = ""
 direccion =  ""
 nombre = ""
@@ -364,12 +229,15 @@ def administrar_chatbot(text,number, messageId, name):
         list.append(replyButtonData)
         
     elif "menú" in text:
-        body = "Estos son los platos del día de hoy 🍲. Presiona para ver opciones: "
-        footer = "Restaurante prueba"
-        dishes = get_dishes()  
-        listReply = listReply_Dish(number, dishes, body, footer, "sed2", messageId)
-        list.append(listReply)
-
+        data = send_catalog_message(number, "menu")
+        response = send_whatsapp_message(data)
+        # Check for errors in the response (assuming JSON format)
+        if 'error' in response:
+            print(f"Error al enviar catálogo: {response['error']}")
+            user_message = 'Error al mostrar el menú. Intenta nuevamente más tarde.'
+            response = text_Message(number, user_message)
+            list.append(response)
+                
     elif any(dish['name'].lower() == text.lower() for dish in get_dishes()): 
         plato = text  
         body = f"Pediste {plato}😋, ¿estás segur@ que quieres realizar este pedido?"
@@ -377,14 +245,7 @@ def administrar_chatbot(text,number, messageId, name):
         options = ["✅ Si.", "❌ No, gracias."]
         replyButtonData = buttonReply_Message(number, options, body, footer, "sed3", messageId)
         list.append(replyButtonData)
-        
-    elif "si." in text:
-        body = "¿Deseas añadir algun ingrediente adicional😄?, presiona en ver opciones:"
-        footer = "Restaurante prueba"
-        user_options = get_addition()
-        listReply = listReply_Addition(number, user_options, body, footer, "sed4",messageId)
-        list.append(listReply)
-    
+
     elif any(addition['name'].lower() == text.lower() for addition in get_addition()):
         adicion = text
         body = f"¿Como deseas recibir tu pedido📋?"
